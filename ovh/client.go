@@ -70,6 +70,46 @@ func (r *ApiResponse) DecodeError(expectedHttpCode []int) (ovhResponse ApiError,
 	return ovhResponse, errors.New(fmt.Sprintf("%d - %s", r.StatusCode, r.Status))
 }
 
+// DoGet Issues an authenticated get request on /path
+func (c *Client) DoGet(path string) (ApiResponse, error) {
+	return c.Do("GET", path, nil, true)
+}
+
+// DoGetUnAuth Issues an un-authenticated get request on /path
+func (c *Client) DoGetUnAuth(path string) (ApiResponse, error) {
+	return c.Do("GET", path, nil, false)
+}
+
+// DoPost Issues an authenticated get request on /path
+func (c *Client) DoPost(path string, data interface{}) (ApiResponse, error) {
+	return c.Do("POST", path, data, true)
+}
+
+// DoPostUnAuth Issues an un-authenticated get request on /path
+func (c *Client) DoPostUnAuth(path string, data interface{}) (ApiResponse, error) {
+	return c.Do("POST", path, data, false)
+}
+
+// DoPut Issues an authenticated get request on /path
+func (c *Client) DoPut(path string, data interface{}) (ApiResponse, error) {
+	return c.Do("PUT", path, data, true)
+}
+
+// DoPutUnAuth Issues an un-authenticated get request on /path
+func (c *Client) DoPutUnAuth(path string, data interface{}) (ApiResponse, error) {
+	return c.Do("PUT", path, data, false)
+}
+
+// DoDelete Issues an authenticated get request on /path
+func (c *Client) DoDelete(path string) (ApiResponse, error) {
+	return c.Do("DELETE", path, nil, true)
+}
+
+// DoDeleteUnAuth Issues an un-authenticated get request on /path
+func (c *Client) DoDeleteUnAuth(path string) (ApiResponse, error) {
+	return c.Do("DELETE", path, nil, false)
+}
+
 //
 // Low Level Helpers
 //
