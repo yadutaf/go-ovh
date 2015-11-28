@@ -16,32 +16,32 @@ const TIMEOUT = 180
 
 // Client represents an an OVH API client
 type Client struct {
-	endpoint           string
-	application_key    string
-	application_secret string
-	consumer_key       string
-	Timeout            int
-	client             *http.Client
+	endpoint          string
+	applicationKey    string
+	applicationSecret string
+	consumerKey       string
+	Timeout           int
+	client            *http.Client
 }
 
-// ApiResponse represents a response from OVH API
-type ApiResponse struct {
+// APIResponse represents a response from OVH API
+type APIResponse struct {
 	StatusCode int
 	Status     string
 	Body       []byte
 }
 
-// ApiError represents an unmarshalled reponse from OVH in case of error
-type ApiError struct {
+// APIError represents an unmarshalled reponse from OVH in case of error
+type APIError struct {
 	ErrorCode string `json:"errorCode"`
-	HttpCode  string `json:"httpCode"`
+	HTTPCode  string `json:"httpCode"`
 	Message   string `json:"message"`
 }
 
 // NewClient returns an OVH API Client
-func NewClient(endpoint, application_key, application_secret, consumer_key string) (c *Client) {
+func NewClient(endpoint, applicationKey, applicationSecret, consumerKey string) (c *Client) {
 	// FIXME: stub
-	return &Client{endpoint, application_key, application_secret, consumer_key, TIMEOUT, &http.Client{}}
+	return &Client{endpoint, applicationKey, applicationSecret, consumerKey, TIMEOUT, &http.Client{}}
 }
 
 //
@@ -49,64 +49,60 @@ func NewClient(endpoint, application_key, application_secret, consumer_key strin
 //
 
 // DecodeError return error on unexpected HTTP code
-func (r *ApiResponse) DecodeError(expectedHttpCode []int) (ovhResponse ApiError, err error) {
-	for _, code := range expectedHttpCode {
+func (r *APIResponse) DecodeError(expectedHTTPCode []int) (ovhResponse APIError, err error) {
+	for _, code := range expectedHTTPCode {
 		if r.StatusCode == code {
 			return ovhResponse, nil
 		}
 	}
 
-	// Try to get OVH returning info about the error
+	// Decode OVH error informations from response
 	if r.Body != nil {
 		err := json.Unmarshal(r.Body, &ovhResponse)
 		if err == nil {
-			if len(ovhResponse.ErrorCode) != 0 {
-				return ovhResponse, errors.New(ovhResponse.ErrorCode)
-			} else {
-				return ovhResponse, errors.New(ovhResponse.Message)
-			}
+			return ovhResponse, errors.New(ovhResponse.Message)
 		}
 	}
-	return ovhResponse, errors.New(fmt.Sprintf("%d - %s", r.StatusCode, r.Status))
+	return ovhResponse, fmt.Errorf("%d - %s", r.StatusCode, r.Status)
 }
 
 // DoGet Issues an authenticated get request on /path
-func (c *Client) DoGet(path string) (ApiResponse, error) {
+func (c *Client) DoGet(path string) (APIResponse, error) {
 	return c.Do("GET", path, nil, true)
 }
 
 // DoGetUnAuth Issues an un-authenticated get request on /path
-func (c *Client) DoGetUnAuth(path string) (ApiResponse, error) {
+func (c *Client) DoGetUnAuth(path string) (APIResponse, error) {
 	return c.Do("GET", path, nil, false)
 }
 
 // DoPost Issues an authenticated get request on /path
-func (c *Client) DoPost(path string, data interface{}) (ApiResponse, error) {
+func (c *Client) DoPost(path string, data interface{}) (APIResponse, error) {
 	return c.Do("POST", path, data, true)
 }
 
 // DoPostUnAuth Issues an un-authenticated get request on /path
-func (c *Client) DoPostUnAuth(path string, data interface{}) (ApiResponse, error) {
+func (c *Client) DoPostUnAuth(path string, data interface{}) (APIResponse, error) {
 	return c.Do("POST", path, data, false)
 }
 
 // DoPut Issues an authenticated get request on /path
-func (c *Client) DoPut(path string, data interface{}) (ApiResponse, error) {
+func (c *Client) DoPut(path string, data interface{}) (APIResponse, error) {
 	return c.Do("PUT", path, data, true)
 }
 
 // DoPutUnAuth Issues an un-authenticated get request on /path
-func (c *Client) DoPutUnAuth(path string, data interface{}) (ApiResponse, error) {
+func (c *Client) DoPutUnAuth(path string, data interface{}) (APIResponse, error) {
 	return c.Do("PUT", path, data, false)
 }
 
 // DoDelete Issues an authenticated get request on /path
-func (c *Client) DoDelete(path string) (ApiResponse, error) {
+func (c *Client) DoDelete(path string) (APIResponse, error) {
 	return c.Do("DELETE", path, nil, true)
 }
 
 // DoDeleteUnAuth Issues an un-authenticated get request on /path
-func (c *Client) DoDeleteUnAuth(path string) (ApiResponse, error) {
+func (c *Client) DoDeleteUnAuth(path string) (APIResponse, error) {
 	return c.Do("DELETE", path, nil, false)
 }
 
@@ -114,8 +110,8 @@ func (c *Client) DoDeleteUnAuth(path string) (ApiResponse, error) {
 // Low Level Helpers
 //
 
-// Call OVH's API and sign request
-func (c *Client) Do(method, path string, data interface{}, need_auth bool) (response ApiResponse, err error) {
+// Do calls OVH's API and signs the request if ``needAuth`` is ``true``
+func (c *Client) Do(method, path string, data interface{}, needAuth bool) (response APIResponse, err error) {
 	target := fmt.Sprintf("%s%s", c.endpoint, path)
 	// TODO: timedelta
 	timestamp := fmt.Sprintf("%d", int32(time.Now().Unix()))
@@ -136,19 +132,19 @@ func (c *Client) Do(method, path string, data interface{}, need_auth bool) (resp
 	if body != nil {
 		req.Header.Add("Content-Type", "application/json;charset=utf-8")
 	}
-	req.Header.Add("X-Ovh-Application", c.application_key)
+	req.Header.Add("X-Ovh-Application", c.applicationKey)
 
 	// Some methods do not need authentication, especially /time, /auth and some
 	// /order methods are actually broken if authenticated.
-	if need_auth {
+	if needAuth {
 		req.Header.Add("X-Ovh-Timestamp", timestamp)
-		req.Header.Add("X-Ovh-Consumer", c.consumer_key)
+		req.Header.Add("X-Ovh-Consumer", c.consumerKey)
 		req.Header.Add("Accept", "application/json")
 
 		h := sha1.New()
 		h.Write([]byte(fmt.Sprintf("%s+%s+%s+%s+%s+%s",
-			c.application_secret,
-			c.consumer_key,
+			c.applicationSecret,
+			c.consumerKey,
 			method,
 			target,
 			body,
