@@ -8,11 +8,23 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 )
 
 // TIMEOUT api requests after 180s
 const TIMEOUT = 180
+
+// ENDPOINTS conveniently maps endpoints names to their real URI
+var ENDPOINTS = map[string]string{
+	"ovh-eu":        "https://eu.api.ovh.com/1.0",
+	"ovh-ca":        "https://ca.api.ovh.com/1.0",
+	"kimsufi-eu":    "https://eu.api.kimsufi.com/1.0",
+	"kimsufi-ca":    "https://ca.api.kimsufi.com/1.0",
+	"soyoustart-eu": "https://eu.api.soyoustart.com/1.0",
+	"soyoustart-ca": "https://ca.api.soyoustart.com/1.0",
+	"runabove-ca":   "https://api.runabove.com/1.0",
+}
 
 // Client represents an an OVH API client
 type Client struct {
@@ -41,6 +53,11 @@ type APIError struct {
 
 // NewClient returns an OVH API Client
 func NewClient(endpoint, applicationKey, applicationSecret, consumerKey string) (c *Client, err error) {
+	// Canonicalize configuration
+	if !strings.Contains(endpoint, "/") {
+		endpoint = ENDPOINTS[endpoint]
+	}
+
 	// Create client
 	client := &Client{endpoint, applicationKey, applicationSecret, consumerKey, TIMEOUT, 0, &http.Client{}}
 
