@@ -21,6 +21,7 @@ type Client struct {
 	applicationSecret string
 	consumerKey       string
 	Timeout           int
+	timeDelta         int
 	client            *http.Client
 }
 
@@ -39,9 +40,25 @@ type APIError struct {
 }
 
 // NewClient returns an OVH API Client
-func NewClient(endpoint, applicationKey, applicationSecret, consumerKey string) (c *Client) {
-	// FIXME: stub
-	return &Client{endpoint, applicationKey, applicationSecret, consumerKey, TIMEOUT, &http.Client{}}
+func NewClient(endpoint, applicationKey, applicationSecret, consumerKey string) (c *Client, err error) {
+	// Create client
+	client := &Client{endpoint, applicationKey, applicationSecret, consumerKey, TIMEOUT, 0, &http.Client{}}
+
+	// Account for clock delay with API in signatures
+	timeDelta, err := client.DoGetUnAuth("/auth/time")
+	if err != nil {
+		return nil, err
+	}
+
+	serverTime := 0
+	localTime := int(time.Now().Unix())
+	err = json.Unmarshal(timeDelta.Body, &serverTime)
+	if err != nil {
+		return nil, err
+	}
+	client.timeDelta = localTime - serverTime
+
+	return client, nil
 }
 
 //
@@ -113,8 +130,7 @@ func (c *Client) DoDeleteUnAuth(path string) (APIResponse, error) {
 // Do calls OVH's API and signs the request if ``needAuth`` is ``true``
 func (c *Client) Do(method, path string, data interface{}, needAuth bool) (response APIResponse, err error) {
 	target := fmt.Sprintf("%s%s", c.endpoint, path)
-	// TODO: timedelta
-	timestamp := fmt.Sprintf("%d", int32(time.Now().Unix()))
+	timestamp := fmt.Sprintf("%d", int(time.Now().Unix())-c.timeDelta)
 
 	var body []byte
 	if data != nil {
