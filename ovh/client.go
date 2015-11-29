@@ -6,8 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/mitchellh/go-homedir"
+	"gopkg.in/ini.v1"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -51,9 +54,42 @@ type APIError struct {
 	Message   string `json:"message"`
 }
 
-// NewClient returns an OVH API Client
+// NewDefaultClient returns an OVH API Client from external configuration
+func NewDefaultClient() (c *Client, err error) {
+	return NewClient("", "", "", "")
+}
+
+// NewEndpointClient returns an OVH API Client from external configuration, for a specific endpoint
+func NewEndpointClient(endpoint string) (c *Client, err error) {
+	return NewClient(endpoint, "", "", "")
+}
+
+// NewClient returns an OVH API Client.
 func NewClient(endpoint, applicationKey, applicationSecret, consumerKey string) (c *Client, err error) {
+	// Load configuration files. Only load file from user home if home could be resolve
+	cfg, err := ini.Load("/etc/ovh.conf")
+	if home, err := homedir.Dir(); err == nil {
+		cfg.Append(home + "/.ovh.conf")
+	}
+	cfg.Append("./ovh.conf")
+
 	// Canonicalize configuration
+	if endpoint == "" {
+		endpoint = getConfigValue(cfg, "default", "endpoint")
+	}
+
+	if applicationKey == "" {
+		applicationKey = getConfigValue(cfg, endpoint, "application_key")
+	}
+
+	if applicationSecret == "" {
+		applicationSecret = getConfigValue(cfg, endpoint, "application_secret")
+	}
+
+	if consumerKey == "" {
+		consumerKey = getConfigValue(cfg, endpoint, "consumer_key")
+	}
+
 	if !strings.Contains(endpoint, "/") {
 		endpoint = ENDPOINTS[endpoint]
 	}
@@ -76,6 +112,27 @@ func NewClient(endpoint, applicationKey, applicationSecret, consumerKey string) 
 	client.timeDelta = localTime - serverTime
 
 	return client, nil
+}
+
+// getConfigValue returns the value of OVH_<NAME> or ``name`` value from ``section``
+func getConfigValue(cfg *ini.File, section, name string) string {
+	// Attempt to load from environment
+	fromEnv := os.Getenv("OVH_" + strings.ToUpper(name))
+	if len(fromEnv) > 0 {
+		return fromEnv
+	}
+
+	// Attempt to load from configuration
+	fromSection := cfg.Section(section)
+	if fromSection == nil {
+		return ""
+	}
+
+	fromSectionKey := fromSection.Key(name)
+	if fromSectionKey == nil {
+		return ""
+	}
+	return fromSectionKey.String()
 }
 
 //
