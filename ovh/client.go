@@ -98,7 +98,7 @@ func NewClient(endpoint, applicationKey, applicationSecret, consumerKey string) 
 	client := &Client{endpoint, applicationKey, applicationSecret, consumerKey, TIMEOUT, 0, &http.Client{}}
 
 	// Account for clock delay with API in signatures
-	timeDelta, err := client.DoGetUnAuth("/auth/time")
+	timeDelta, err := client.GetUnAuth("/auth/time")
 	if err != nil {
 		return nil, err
 	}
@@ -157,52 +157,52 @@ func (r *APIResponse) DecodeError(expectedHTTPCode []int) (ovhResponse APIError,
 	return ovhResponse, fmt.Errorf("%d - %s", r.StatusCode, r.Status)
 }
 
-// DoGet Issues an authenticated get request on /path
-func (c *Client) DoGet(path string) (APIResponse, error) {
-	return c.Do("GET", path, nil, true)
+// Get Issues an authenticated get request on /path
+func (c *Client) Get(path string) (APIResponse, error) {
+	return c.Call("GET", path, nil, true)
 }
 
-// DoGetUnAuth Issues an un-authenticated get request on /path
-func (c *Client) DoGetUnAuth(path string) (APIResponse, error) {
-	return c.Do("GET", path, nil, false)
+// GetUnAuth Issues an un-authenticated get request on /path
+func (c *Client) GetUnAuth(path string) (APIResponse, error) {
+	return c.Call("GET", path, nil, false)
 }
 
-// DoPost Issues an authenticated get request on /path
-func (c *Client) DoPost(path string, data interface{}) (APIResponse, error) {
-	return c.Do("POST", path, data, true)
+// Post Issues an authenticated get request on /path
+func (c *Client) Post(path string, data interface{}) (APIResponse, error) {
+	return c.Call("POST", path, data, true)
 }
 
-// DoPostUnAuth Issues an un-authenticated get request on /path
-func (c *Client) DoPostUnAuth(path string, data interface{}) (APIResponse, error) {
-	return c.Do("POST", path, data, false)
+// PostUnAuth Issues an un-authenticated get request on /path
+func (c *Client) PostUnAuth(path string, data interface{}) (APIResponse, error) {
+	return c.Call("POST", path, data, false)
 }
 
-// DoPut Issues an authenticated get request on /path
-func (c *Client) DoPut(path string, data interface{}) (APIResponse, error) {
-	return c.Do("PUT", path, data, true)
+// Put Issues an authenticated get request on /path
+func (c *Client) Put(path string, data interface{}) (APIResponse, error) {
+	return c.Call("PUT", path, data, true)
 }
 
-// DoPutUnAuth Issues an un-authenticated get request on /path
-func (c *Client) DoPutUnAuth(path string, data interface{}) (APIResponse, error) {
-	return c.Do("PUT", path, data, false)
+// PutUnAuth Issues an un-authenticated get request on /path
+func (c *Client) PutUnAuth(path string, data interface{}) (APIResponse, error) {
+	return c.Call("PUT", path, data, false)
 }
 
-// DoDelete Issues an authenticated get request on /path
-func (c *Client) DoDelete(path string) (APIResponse, error) {
-	return c.Do("DELETE", path, nil, true)
+// Delete Issues an authenticated get request on /path
+func (c *Client) Delete(path string) (APIResponse, error) {
+	return c.Call("DELETE", path, nil, true)
 }
 
-// DoDeleteUnAuth Issues an un-authenticated get request on /path
-func (c *Client) DoDeleteUnAuth(path string) (APIResponse, error) {
-	return c.Do("DELETE", path, nil, false)
+// DeleteUnAuth Issues an un-authenticated get request on /path
+func (c *Client) DeleteUnAuth(path string) (APIResponse, error) {
+	return c.Call("DELETE", path, nil, false)
 }
 
 //
 // Low Level Helpers
 //
 
-// Do calls OVH's API and signs the request if ``needAuth`` is ``true``
-func (c *Client) Do(method, path string, data interface{}, needAuth bool) (response APIResponse, err error) {
+// Call calls OVH's API and signs the request if ``needAuth`` is ``true``
+func (c *Client) Call(method, path string, data interface{}, needAuth bool) (response APIResponse, err error) {
 	target := fmt.Sprintf("%s%s", c.endpoint, path)
 	timestamp := fmt.Sprintf("%d", int(time.Now().Unix())-c.timeDelta)
 
