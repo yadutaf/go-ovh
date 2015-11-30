@@ -18,20 +18,23 @@ import (
 // TIMEOUT api requests after 180s
 const TIMEOUT = 180
 
+// Endpoint reprensents an API endpoint
+type Endpoint string
+
 // ENDPOINTS conveniently maps endpoints names to their real URI
-var ENDPOINTS = map[string]string{
-	"ovh-eu":        "https://eu.api.ovh.com/1.0",
-	"ovh-ca":        "https://ca.api.ovh.com/1.0",
-	"kimsufi-eu":    "https://eu.api.kimsufi.com/1.0",
-	"kimsufi-ca":    "https://ca.api.kimsufi.com/1.0",
-	"soyoustart-eu": "https://eu.api.soyoustart.com/1.0",
-	"soyoustart-ca": "https://ca.api.soyoustart.com/1.0",
-	"runabove-ca":   "https://api.runabove.com/1.0",
+var ENDPOINTS = map[string]Endpoint{
+	"ovh-eu":        Endpoint("https://eu.api.ovh.com/1.0"),
+	"ovh-ca":        Endpoint("https://ca.api.ovh.com/1.0"),
+	"kimsufi-eu":    Endpoint("https://eu.api.kimsufi.com/1.0"),
+	"kimsufi-ca":    Endpoint("https://ca.api.kimsufi.com/1.0"),
+	"soyoustart-eu": Endpoint("https://eu.api.soyoustart.com/1.0"),
+	"soyoustart-ca": Endpoint("https://ca.api.soyoustart.com/1.0"),
+	"runabove-ca":   Endpoint("https://api.runabove.com/1.0"),
 }
 
 // Client represents an an OVH API client
 type Client struct {
-	endpoint          string
+	endpoint          Endpoint
 	applicationKey    string
 	applicationSecret string
 	consumerKey       string
@@ -65,7 +68,7 @@ func NewEndpointClient(endpoint string) (*Client, error) {
 }
 
 // NewClient returns an OVH API Client.
-func NewClient(endpoint, applicationKey, applicationSecret, consumerKey string) (*Client, error) {
+func NewClient(endpointName, applicationKey, applicationSecret, consumerKey string) (*Client, error) {
 	// Load configuration files. Only load file from user home if home could be resolve
 	cfg, err := ini.Load("/etc/ovh.conf")
 	if home, err := homedir.Dir(); err == nil {
@@ -74,24 +77,27 @@ func NewClient(endpoint, applicationKey, applicationSecret, consumerKey string) 
 	cfg.Append("./ovh.conf")
 
 	// Canonicalize configuration
-	if endpoint == "" {
-		endpoint = getConfigValue(cfg, "default", "endpoint")
+	if endpointName == "" {
+		endpointName = getConfigValue(cfg, "default", "endpoint")
 	}
 
 	if applicationKey == "" {
-		applicationKey = getConfigValue(cfg, endpoint, "application_key")
+		applicationKey = getConfigValue(cfg, endpointName, "application_key")
 	}
 
 	if applicationSecret == "" {
-		applicationSecret = getConfigValue(cfg, endpoint, "application_secret")
+		applicationSecret = getConfigValue(cfg, endpointName, "application_secret")
 	}
 
 	if consumerKey == "" {
-		consumerKey = getConfigValue(cfg, endpoint, "consumer_key")
+		consumerKey = getConfigValue(cfg, endpointName, "consumer_key")
 	}
 
-	if !strings.Contains(endpoint, "/") {
-		endpoint = ENDPOINTS[endpoint]
+	var endpoint Endpoint
+	if strings.Contains(endpointName, "/") {
+		endpoint = Endpoint(endpointName)
+	} else {
+		endpoint = ENDPOINTS[endpointName]
 	}
 
 	// Timeout
