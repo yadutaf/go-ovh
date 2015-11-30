@@ -55,17 +55,17 @@ type APIError struct {
 }
 
 // NewDefaultClient returns an OVH API Client from external configuration
-func NewDefaultClient() (c *Client, err error) {
+func NewDefaultClient() (*Client, error) {
 	return NewClient("", "", "", "")
 }
 
 // NewEndpointClient returns an OVH API Client from external configuration, for a specific endpoint
-func NewEndpointClient(endpoint string) (c *Client, err error) {
+func NewEndpointClient(endpoint string) (*Client, error) {
 	return NewClient(endpoint, "", "", "")
 }
 
 // NewClient returns an OVH API Client.
-func NewClient(endpoint, applicationKey, applicationSecret, consumerKey string) (c *Client, err error) {
+func NewClient(endpoint, applicationKey, applicationSecret, consumerKey string) (*Client, error) {
 	// Load configuration files. Only load file from user home if home could be resolve
 	cfg, err := ini.Load("/etc/ovh.conf")
 	if home, err := homedir.Dir(); err == nil {
@@ -140,60 +140,61 @@ func getConfigValue(cfg *ini.File, section, name string) string {
 //
 
 // DecodeError return error on unexpected HTTP code
-func (r *APIResponse) DecodeError(expectedHTTPCode []int) (ovhResponse APIError, err error) {
+func (r *APIResponse) DecodeError(expectedHTTPCode []int) (*APIError, error) {
 	for _, code := range expectedHTTPCode {
 		if r.StatusCode == code {
-			return ovhResponse, nil
+			return nil, nil
 		}
 	}
 
 	// Decode OVH error informations from response
 	if r.Body != nil {
-		err := json.Unmarshal(r.Body, &ovhResponse)
+		var ovhResponse *APIError
+		err := json.Unmarshal(r.Body, ovhResponse)
 		if err == nil {
 			return ovhResponse, errors.New(ovhResponse.Message)
 		}
 	}
-	return ovhResponse, fmt.Errorf("%d - %s", r.StatusCode, r.Status)
+	return nil, fmt.Errorf("%d - %s", r.StatusCode, r.Status)
 }
 
 // Get Issues an authenticated get request on /path
-func (c *Client) Get(path string) (APIResponse, error) {
+func (c *Client) Get(path string) (*APIResponse, error) {
 	return c.Call("GET", path, nil, true)
 }
 
 // GetUnAuth Issues an un-authenticated get request on /path
-func (c *Client) GetUnAuth(path string) (APIResponse, error) {
+func (c *Client) GetUnAuth(path string) (*APIResponse, error) {
 	return c.Call("GET", path, nil, false)
 }
 
 // Post Issues an authenticated get request on /path
-func (c *Client) Post(path string, data interface{}) (APIResponse, error) {
+func (c *Client) Post(path string, data interface{}) (*APIResponse, error) {
 	return c.Call("POST", path, data, true)
 }
 
 // PostUnAuth Issues an un-authenticated get request on /path
-func (c *Client) PostUnAuth(path string, data interface{}) (APIResponse, error) {
+func (c *Client) PostUnAuth(path string, data interface{}) (*APIResponse, error) {
 	return c.Call("POST", path, data, false)
 }
 
 // Put Issues an authenticated get request on /path
-func (c *Client) Put(path string, data interface{}) (APIResponse, error) {
+func (c *Client) Put(path string, data interface{}) (*APIResponse, error) {
 	return c.Call("PUT", path, data, true)
 }
 
 // PutUnAuth Issues an un-authenticated get request on /path
-func (c *Client) PutUnAuth(path string, data interface{}) (APIResponse, error) {
+func (c *Client) PutUnAuth(path string, data interface{}) (*APIResponse, error) {
 	return c.Call("PUT", path, data, false)
 }
 
 // Delete Issues an authenticated get request on /path
-func (c *Client) Delete(path string) (APIResponse, error) {
+func (c *Client) Delete(path string) (*APIResponse, error) {
 	return c.Call("DELETE", path, nil, true)
 }
 
 // DeleteUnAuth Issues an un-authenticated get request on /path
-func (c *Client) DeleteUnAuth(path string) (APIResponse, error) {
+func (c *Client) DeleteUnAuth(path string) (*APIResponse, error) {
 	return c.Call("DELETE", path, nil, false)
 }
 
@@ -202,21 +203,23 @@ func (c *Client) DeleteUnAuth(path string) (APIResponse, error) {
 //
 
 // Call calls OVH's API and signs the request if ``needAuth`` is ``true``
-func (c *Client) Call(method, path string, data interface{}, needAuth bool) (response APIResponse, err error) {
+func (c *Client) Call(method, path string, data interface{}, needAuth bool) (*APIResponse, error) {
 	target := fmt.Sprintf("%s%s", c.endpoint, path)
 	timestamp := fmt.Sprintf("%d", int(time.Now().Unix())-c.timeDelta)
 
 	var body []byte
+	var err error
+
 	if data != nil {
 		body, err = json.Marshal(data)
 		if err != nil {
-			return response, err
+			return nil, err
 		}
 	}
 
 	req, err := http.NewRequest(method, target, bytes.NewReader(body))
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	if body != nil {
@@ -247,12 +250,14 @@ func (c *Client) Call(method, path string, data interface{}, needAuth bool) (res
 	r, err := c.client.Do(req)
 
 	if err != nil {
-		return
+		return nil, err
 	}
 	defer r.Body.Close()
 
+	response := &APIResponse{}
 	response.StatusCode = r.StatusCode
 	response.Status = r.Status
 	response.Body, err = ioutil.ReadAll(r.Body)
-	return
+
+	return response, nil
 }
