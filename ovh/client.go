@@ -6,23 +6,24 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/mitchellh/go-homedir"
-	"gopkg.in/ini.v1"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/mitchellh/go-homedir"
+	"gopkg.in/ini.v1"
 )
 
-// TIMEOUT api requests after 180s
-const TIMEOUT = 180
+// DefaultTimeout api requests after 180s
+const DefaultTimeout = 180
 
 // Endpoint reprensents an API endpoint
 type Endpoint string
 
-// ENDPOINTS conveniently maps endpoints names to their real URI
-var ENDPOINTS = map[string]Endpoint{
+// Endpoints conveniently maps endpoints names to their real URI
+var Endpoints = map[string]Endpoint{
 	"ovh-eu":        Endpoint("https://eu.api.ovh.com/1.0"),
 	"ovh-ca":        Endpoint("https://ca.api.ovh.com/1.0"),
 	"kimsufi-eu":    Endpoint("https://eu.api.kimsufi.com/1.0"),
@@ -97,14 +98,22 @@ func NewClient(endpointName, applicationKey, applicationSecret, consumerKey stri
 	if strings.Contains(endpointName, "/") {
 		endpoint = Endpoint(endpointName)
 	} else {
-		endpoint = ENDPOINTS[endpointName]
+		endpoint = Endpoints[endpointName]
 	}
 
 	// Timeout
-	timeout := time.Duration(TIMEOUT * time.Second)
+	timeout := time.Duration(DefaultTimeout * time.Second)
 
 	// Create client
-	client := &Client{endpoint, applicationKey, applicationSecret, consumerKey, timeout, 0, &http.Client{}}
+	client := &Client{
+		endpoint:          endpoint,
+		applicationKey:    applicationKey,
+		applicationSecret: applicationSecret,
+		consumerKey:       consumerKey,
+		Timeout:           timeout,
+		timeDelta:         0,
+		client:            &http.Client{},
+	}
 
 	// Account for clock delay with API in signatures
 	timeDelta, err := client.GetUnAuth("/auth/time")
