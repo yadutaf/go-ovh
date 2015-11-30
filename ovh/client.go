@@ -35,8 +35,8 @@ type Client struct {
 	applicationKey    string
 	applicationSecret string
 	consumerKey       string
-	Timeout           int
-	timeDelta         int
+	Timeout           time.Duration
+	timeDelta         int64
 	client            *http.Client
 }
 
@@ -94,8 +94,11 @@ func NewClient(endpoint, applicationKey, applicationSecret, consumerKey string) 
 		endpoint = ENDPOINTS[endpoint]
 	}
 
+	// Timeout
+	timeout := time.Duration(TIMEOUT * time.Second)
+
 	// Create client
-	client := &Client{endpoint, applicationKey, applicationSecret, consumerKey, TIMEOUT, 0, &http.Client{}}
+	client := &Client{endpoint, applicationKey, applicationSecret, consumerKey, timeout, 0, &http.Client{}}
 
 	// Account for clock delay with API in signatures
 	timeDelta, err := client.GetUnAuth("/auth/time")
@@ -103,13 +106,12 @@ func NewClient(endpoint, applicationKey, applicationSecret, consumerKey string) 
 		return nil, err
 	}
 
-	serverTime := 0
-	localTime := int(time.Now().Unix())
+	var serverTime int64
 	err = json.Unmarshal(timeDelta.Body, &serverTime)
 	if err != nil {
 		return nil, err
 	}
-	client.timeDelta = localTime - serverTime
+	client.timeDelta = time.Now().Unix() - serverTime
 
 	return client, nil
 }
@@ -205,7 +207,7 @@ func (c *Client) DeleteUnAuth(path string) (*APIResponse, error) {
 // Call calls OVH's API and signs the request if ``needAuth`` is ``true``
 func (c *Client) Call(method, path string, data interface{}, needAuth bool) (*APIResponse, error) {
 	target := fmt.Sprintf("%s%s", c.endpoint, path)
-	timestamp := fmt.Sprintf("%d", int(time.Now().Unix())-c.timeDelta)
+	timestamp := time.Now().Unix() - c.timeDelta
 
 	var body []byte
 	var err error
@@ -230,12 +232,12 @@ func (c *Client) Call(method, path string, data interface{}, needAuth bool) (*AP
 	// Some methods do not need authentication, especially /time, /auth and some
 	// /order methods are actually broken if authenticated.
 	if needAuth {
-		req.Header.Add("X-Ovh-Timestamp", timestamp)
+		req.Header.Add("X-Ovh-Timestamp", fmt.Sprintf("%d", timestamp))
 		req.Header.Add("X-Ovh-Consumer", c.consumerKey)
 		req.Header.Add("Accept", "application/json")
 
 		h := sha1.New()
-		h.Write([]byte(fmt.Sprintf("%s+%s+%s+%s+%s+%s",
+		h.Write([]byte(fmt.Sprintf("%s+%s+%s+%s+%s+%d",
 			c.applicationSecret,
 			c.consumerKey,
 			method,
@@ -246,7 +248,7 @@ func (c *Client) Call(method, path string, data interface{}, needAuth bool) (*AP
 		req.Header.Add("X-Ovh-Signature", fmt.Sprintf("$1$%x", h.Sum(nil)))
 	}
 
-	c.client.Timeout = time.Duration(TIMEOUT * time.Second)
+	c.client.Timeout = c.Timeout
 	r, err := c.client.Do(req)
 
 	if err != nil {
