@@ -19,18 +19,34 @@ import (
 // DefaultTimeout api requests after 180s
 const DefaultTimeout = 180
 
+// Custom errors
+var (
+	ErrNoEnpoint = errors.New("ovh: no endpoint provided")
+)
+
 // Endpoint reprensents an API endpoint
 type Endpoint string
 
+// Available endpoints
+const (
+	OvhEU        Endpoint = "https://eu.api.ovh.com/1.0"
+	OvhCA                 = "https://ca.api.ovh.com/1.0"
+	KimsufiEU             = "https://eu.api.kimsufi.com/1.0"
+	KimsufiCA             = "https://ca.api.kimsufi.com/1.0"
+	SoyoustartEU          = "https://eu.api.soyoustart.com/1.0"
+	SoyoustartCA          = "https://ca.api.soyoustart.com/1.0"
+	RunaboveCA            = "https://api.runabove.com/1.0"
+)
+
 // Endpoints conveniently maps endpoints names to their real URI
 var Endpoints = map[string]Endpoint{
-	"ovh-eu":        Endpoint("https://eu.api.ovh.com/1.0"),
-	"ovh-ca":        Endpoint("https://ca.api.ovh.com/1.0"),
-	"kimsufi-eu":    Endpoint("https://eu.api.kimsufi.com/1.0"),
-	"kimsufi-ca":    Endpoint("https://ca.api.kimsufi.com/1.0"),
-	"soyoustart-eu": Endpoint("https://eu.api.soyoustart.com/1.0"),
-	"soyoustart-ca": Endpoint("https://ca.api.soyoustart.com/1.0"),
-	"runabove-ca":   Endpoint("https://api.runabove.com/1.0"),
+	"ovh-eu":        OvhEU,
+	"ovh-ca":        OvhCA,
+	"kimsufi-eu":    KimsufiEU,
+	"kimsufi-ca":    KimsufiCA,
+	"soyoustart-eu": SoyoustartEU,
+	"soyoustart-ca": SoyoustartCA,
+	"runabove-ca":   RunaboveCA,
 }
 
 // Client represents an an OVH API client
@@ -58,9 +74,14 @@ type APIResponse struct {
 
 // APIError represents an unmarshalled reponse from OVH in case of error
 type APIError struct {
-	ErrorCode string `json:"errorCode"`
-	HTTPCode  string `json:"httpCode"`
+	ErrorCode int    `json:"errorCode"`
+	HTTPCode  int    `json:"httpCode"`
 	Message   string `json:"message"`
+}
+
+// Error implements the error interface
+func (e *APIError) Error() string {
+	return fmt.Sprintf("Error %d: %q", e.ErrorCode, e.Message)
 }
 
 // Util: get user home
@@ -96,6 +117,11 @@ func NewClient(endpointName, applicationKey, applicationSecret, consumerKey stri
 	// Canonicalize configuration
 	if endpointName == "" {
 		endpointName = getConfigValue(cfg, "default", "endpoint")
+	}
+
+	// Check if the endpoint is now set
+	if endpointName == "" {
+		return nil, ErrNoEnpoint
 	}
 
 	if applicationKey == "" {
